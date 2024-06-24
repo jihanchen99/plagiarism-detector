@@ -27,17 +27,21 @@ public class PlagiarismDetector {
 		if (files == null) throw new IllegalArgumentException();
 		
 		Map<String, Integer> numberOfMatches = new HashMap<String, Integer>();
+
+		// caching
+		Map<String, Set<String>> filePhrasesMap = new HashMap<>();
+		for (String file : files) {
+			filePhrasesMap.put(file, createPhrases(dirName + "/" + file, windowSize));
+		}
 		
 		// compare each file to all other files
-		for (int i = 0; i < files.length; i++) {
+		for (int i = 0; i < files.length - 1; i++) {		// changed i's upper bound
 			String file1 = files[i];
+			Set<String> file1Phrases = filePhrasesMap.get(file1);
 
-			for (int j = 0; j < files.length; j++) { 
+			for (int j = i + 1; j < files.length; j++) { 	// changed j = 0 to j = i+1
 				String file2 = files[j];
-
-				// create phrases for each file
-				Set<String> file1Phrases = createPhrases(dirName + "/" + file1, windowSize); 
-				Set<String> file2Phrases = createPhrases(dirName + "/" + file2, windowSize); 
+				Set<String> file2Phrases = filePhrasesMap.get(file2);
 				
 				if (file1Phrases == null || file2Phrases == null)
 					return null;
@@ -51,9 +55,7 @@ public class PlagiarismDetector {
 				// if the number of matches exceeds the threshold, add it to the Map
 				if (matches.size() > threshold) {
 					String key = file1 + "-" + file2;
-					if (numberOfMatches.containsKey(file2 + "-" + file1) == false && file1.equals(file2) == false) {
-						numberOfMatches.put(key,matches.size());
-					}
+					numberOfMatches.put(key,matches.size());	// deleted unnecessary condition check
 				}				
 			}
 			
@@ -72,15 +74,15 @@ public class PlagiarismDetector {
 		if (filename == null) return null;
 		
 		List<String> words = new ArrayList<String>();
-		
+
 		try {
 			BufferedReader in = new BufferedReader(new FileReader(filename));
 			String line;
 			while ((line = in.readLine())  != null) {
 				String[] tokens = line.split(" ");
-				for (String token : tokens) { 
+				for (String token : tokens) {
 					// this strips punctuation and converts to uppercase
-					words.add(token.replaceAll("[^a-zA-Z]", "").toUpperCase()); 
+					words.add(token.replaceAll("[^a-zA-Z]", "").toUpperCase());
 				}
 			}
 		}
@@ -110,10 +112,7 @@ public class PlagiarismDetector {
 			for (int j = 0; j < window; j++) {
 				phrase += words.get(i+j) + " ";
 			}
-
-			if (phrases.contains(phrase) == false)
-				phrases.add(phrase);
-
+			phrases.add(phrase.toLowerCase());
 		}
 		
 		return phrases;
@@ -132,10 +131,8 @@ public class PlagiarismDetector {
 		if (myPhrases != null && yourPhrases != null) {
 		
 			for (String mine : myPhrases) {
-				for (String yours : yourPhrases) {
-					if (mine.equalsIgnoreCase(yours)) {
-						matches.add(mine);
-					}
+				if (yourPhrases.contains(mine)) {
+					matches.add(mine);
 				}
 			}
 		}
@@ -149,15 +146,15 @@ public class PlagiarismDetector {
 	 * are sorted according to the value of the Integer, in non-ascending order.
 	 */
 	private static LinkedHashMap<String, Integer> sortResults(Map<String, Integer> possibleMatches) {
-		
-		// Because this approach modifies the Map as a side effect of printing 
+
+		// Because this approach modifies the Map as a side effect of printing
 		// the results, it is necessary to make a copy of the original Map
 		Map<String, Integer> copy = new HashMap<String, Integer>();
 
 		for (String key : possibleMatches.keySet()) {
 			copy.put(key, possibleMatches.get(key));
-		}	
-		
+		}
+
 		LinkedHashMap<String, Integer> list = new LinkedHashMap<String, Integer>();
 
 		for (int i = 0; i < copy.size(); i++) {
@@ -169,14 +166,14 @@ public class PlagiarismDetector {
 					maxKey = key;
 				}
 			}
-			
+
 			list.put(maxKey, maxValue);
-			
+
 			if (copy.containsKey(maxKey)) {
 				copy.put(maxKey, -1);
 			}
 		}
-		
+
 		return list;
 	}
 	
